@@ -50,11 +50,16 @@ defmodule UdpServer.Worker do
     ## Private
 
     defp process_packet(socket, addr, port, data) do
+        begin_time = System.monotonic_time()
+
         Task.async(fn() ->
             :poolboy.transaction(
                 UdpServer.udp_pool_name(),
                 fn(pid) ->
                     UdpServer.PacketWorker.process_packet(pid, socket, addr, port, data)
+
+                    end_time = System.monotonic_time()
+                    UdpServer.Collector.recv_packet(addr, port, (end_time - begin_time))
                 end
             )
 		    end
@@ -85,16 +90,8 @@ defmodule UdpServer.PacketWorker do
     end
 
     def handle_call({:process, socket, addr, port, data}, _from, state) do
-        # Update recv counter
-        recv_counter = {:recv, addr, port}
-        UdpServer.Collector.inc_counter(recv_counter)
-
         # Send back the packet
         :gen_udp.send(socket, addr, port, data)
-
-        # Update send counter
-        send_counter = {:send, addr, port}
-        UdpServer.Collector.inc_counter(send_counter)
 
 		{:reply, :ok, state}
     end

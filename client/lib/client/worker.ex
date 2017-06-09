@@ -69,8 +69,8 @@ defmodule UdpClient.Worker do
 
 	def handle_info({:udp, _socket, _ip, _port, data}, %State{client_id: client_id} = state) do
         # Update recv counter
-        recv_counter = {:recv, client_id}
-        UdpClient.Collector.inc_counter(recv_counter)
+        # recv_counter = {:recv, client_id}
+        # UdpClient.Collector.inc_counter(recv_counter)
 
         process_packet(data, client_id)
 
@@ -89,16 +89,16 @@ defmodule UdpClient.Worker do
 
     def process_packet(binary, client_id)
 
-    def process_packet(<<
-                        10 :: size(16),
-                        time :: signed-integer-size(64),
-                       >>,
-                       client_id) do
-        curr_time = System.monotonic_time(:milliseconds)
-        delta = curr_time - time
+    # def process_packet(<<
+    #                     10 :: size(16),
+    #                     time :: signed-integer-size(64),
+    #                    >>,
+    #                    client_id) do
+    #     curr_time = System.monotonic_time(:milliseconds)
+    #     delta = curr_time - time
 
-        :ets.insert_new(:udp_stats, {{:pong, client_id, time}, delta})
-    end
+    #     :ets.insert_new(:udp_stats, {{:pong, client_id, time}, delta})
+    # end
 
     def process_packet(_, _client_id) do
         :ok
@@ -110,7 +110,7 @@ defmodule UdpClient.Worker.SendTimer do
     use GenServer
     require Logger
 
-    @period         200   # Period between executions (in ms)
+    @period         25   # Period between executions (in ms)
 
     defmodule State do
         defstruct [
@@ -159,7 +159,7 @@ defmodule UdpClient.Worker.SendTimer do
         {:reply, :ok, %State{state | timer: nil}}
     end
 
-    def handle_info(:ping, %State{socket: socket, address: address, port: port, client_id: client_id} = state) do
+    def handle_info(:ping, %State{socket: socket, address: address, port: port, client_id: _client_id} = state) do
         # Send ping
         monotonic_time = System.monotonic_time(:milliseconds)
         packet = <<
@@ -169,8 +169,8 @@ defmodule UdpClient.Worker.SendTimer do
         :ok = :gen_udp.send(socket, address, port, packet)
 
         # Update send counter
-        send_counter = {:send, client_id}
-        UdpClient.Collector.inc_counter(send_counter)
+        # send_counter = {:send, client_id}
+        # UdpClient.Collector.inc_counter(send_counter)
 
         # Start the timer again
         timer = Process.send_after(self(), :ping, @period)

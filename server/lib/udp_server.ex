@@ -9,6 +9,7 @@ defmodule UdpServer do
             supervisor(UdpServer.Collector.Supervisor, []),
 		    :poolboy.child_spec(udp_pool_name(), udp_poolboy_config(), []),
             worker(UdpServer.Worker, []),
+            worker(UdpServer.UdpStats, []),
         ]
 
         opts = [strategy: :one_for_one, name: UdpServer.Supervisor]

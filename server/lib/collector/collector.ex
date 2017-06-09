@@ -1,62 +1,42 @@
 defmodule UdpServer.Collector do
     use GenServer
-    require Logger
+
+    defmodule State do
+        @type t :: %__MODULE__{}
+        defstruct []
+    end
 
     ## Client API
 
-	def start_link() do
+    @spec start_link :: GenServer.on_start
+	def start_link do
 		GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 	end
 
-    def inc_counter(counter)  do
-        GenServer.call(__MODULE__, {:inc_counter, counter})
-    end
-
-    def get_raw_stats() do
-        GenServer.call(__MODULE__, :get_raw_stats)
-    end
-
-    def display_stats() do
-        GenServer.call(__MODULE__, :display_stats)
+    @spec recv_packet(:inet.ip_address, :inet.port_number, integer) :: no_return
+    def recv_packet(addr, port, process_time) do
+        GenServer.cast(__MODULE__, {:recv_packet, addr, port, process_time})
     end
 
     ## Server Callbacks
 
-	def init(:ok) do
-        {:ok, %{}}
+    @spec init(:ok) :: {:ok, State.t}
+    def init(:ok) do
+        {:ok, %State{}}
     end
 
-    def handle_call({:inc_counter, counter}, _from, state) do
-        :ets.update_counter(:udp_stats, counter, 1, {1, 0})
+    @spec handle_cast(term, term) :: {:noreply, term} | {:stop, term, term}
+    def handle_cast(request, state)
 
-        {:reply, :ok, state}
+    def handle_cast({:recv_packet, addr, port, process_time}, state) do
+        true = :ets.insert(:udp_stats, {{addr, port}, process_time})
+
+        {:noreply, state}
     end
 
-    def handle_call(:get_raw_stats, _from, state) do
-        counters = :ets.match(:udp_stats, :"$1")
-
-        {:reply, counters, state}
-    end
-
-    def handle_call(:display_stats, _from, state) do
-        dump_stats()
-
-        {:reply, :ok, state}
-    end
-
-    # Private
-
-    defp dump_stats() do
-        nb_send = :ets.match(:udp_stats, {{:recv, :"_", :"_"}, :"$1"}) |> Enum.flat_map(&(&1)) |> Enum.sum
-        nb_recv = :ets.match(:udp_stats, {{:recv, :"_", :"_"}, :"$1"}) |> Enum.flat_map(&(&1)) |> Enum.sum
-
-        IO.puts(
-        """
-        Stats:
-            #{inspect nb_recv}\t\tUDP packets received
-            #{inspect nb_send}\t\tUDP packets sent
-        """
-        )
+    @spec handle_info(term, term) :: {:noreply, term}
+    def handle_info(_msg, state) do
+        {:noreply, state}
     end
 
 end
